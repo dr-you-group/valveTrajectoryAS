@@ -1549,4 +1549,119 @@ ggsave(file="./plot/density_plot.tiff", g, width=23, height=12, units="cm", dpi 
 
 # write.csv(as_obs,"AS_rawdata_echo.csv")
 
+as <- read.csv("./data/AS_first_echo_indication_merged.csv", stringsAsFactors = F)
 
+
+list = c("AF",
+         "Arrhythmia",
+         "AS",
+         "As",
+         "Bicuspid AV",
+         "Bradycardia",
+         "Cardiac marker elevation",
+         "Cardiomegaly",
+         "Cerebral infarct",
+         "Chest pain",
+         "CRF",
+         "DCMP",
+         "Dizziness",
+         "DVT",
+         "Dyspnea",
+         "Edema",
+         "Effusion",
+         "Embolism",
+         "ESRD",
+         "Follow up for other purpose",
+         "General weakness",
+         "HCMP",
+         "Health check-up",
+         "HF aggravation",
+         "Hypertension",
+         "Hypotension",
+         "ICH",
+         "IE",
+         "Infection",
+         "Ischemic DCMP",
+         "Melena",
+         "Murmur",
+         "Orthopnea",
+         "Palpitation",
+         "PAOD",
+         "Pericardial effusion",
+         "Pleural effusion",
+         "Pneumonia",
+         "Post resuscitation",
+         "PostOP",
+         "Pre AVR",
+         "Pre TAVI",
+         "PreOP evaluation",
+         "Presyncope",
+         "PTE",
+         "Pulmonary edema",
+         "Pulmonary hypertension",
+         "Renal infarct",
+         "SDH",
+         "Sepsis",
+         "Shock",
+         "Stroke",
+         "Syncope",
+         "Thrombus",
+         "Fever")
+
+
+as_dataframe <- data.frame(matrix(ncol = 4, nrow = 0))
+
+for (varname in list){
+  a<- as %>%
+    filter(Reason_1 == varname) %>%
+    nrow()
+  b<- as %>%
+    filter(Reason_1 == varname) %>%
+    filter(group2 == 1) %>%
+    nrow()
+  c<- as %>%
+    filter(Reason_1 == varname) %>%
+    filter(group2 == 2) %>%
+    nrow()
+  
+  tempdf<-data.frame(varname, a, b, c)
+  names(tempdf) <- c("Var","total", "slow", "rapid")
+  as_dataframe<-rbind(as_dataframe, tempdf)
+}
+
+as<-as %>%
+  mutate(routineFU = ifelse((Reason_1=="AS") | (Reason_1=="Bicuspid AV"), 1, 0)) %>%
+  mutate(sysDisease = ifelse(routineFU==0,1,0))
+
+
+
+as_dataframe <- data.frame(matrix(ncol = 6, nrow = 0))
+names(as_dataframe) <- c("Var","G1_mean_N","G1_sd_per","G2_mean_N","G2_sd_per", "p-value")
+
+list <- c("routineFU", "sysDisease")
+
+for (varname in list){
+  Var<-varname
+  
+  a<-as %>%
+    filter(group2==1) %>%
+    filter(!!as.name(varname)==1) %>%
+    nrow()
+  
+  b<-a/306*100
+  
+  c<-as %>%
+    filter(group2==2) %>%
+    filter(!!as.name(varname)==1) %>%
+    nrow()
+  
+  d<-c/380*100
+  
+  tmp_table <- xtabs(~ eval(as.name(varname)) + group2 , as)
+  
+  e<-chisq.test(tmp_table, correct=FALSE)[3]
+  
+  tempdf<-data.frame(Var, a,b,c,d,e)
+  names(tempdf) <- c("Var","G1_mean_N","G1_sd_per","G2_mean_N","G2_sd_per", "p-value")
+  as_dataframe<-rbind(as_dataframe, tempdf)
+}
