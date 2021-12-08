@@ -1551,94 +1551,81 @@ ggsave(file="./plot/density_plot.tiff", g, width=23, height=12, units="cm", dpi 
 
 as <- read.csv("./data/AS_first_echo_indication_merged.csv", stringsAsFactors = F)
 
+as<-as %>%
+  mutate(Reason_Classified = case_when(
+    Reason_1 =="AS" ~ "Known AS follow up",
+    Reason_1 =="Bicuspid AV" ~ "Known AS follow up",
+    Reason_1 =="Cardiomegaly" ~ "Cardiomegaly",
+    Reason_1 =="Edema" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Effusion" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Pericardial effusion" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Pleural effusion" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Pulmonary edema" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Murmur" ~ "Symptoms/Signs for AS",
+    Reason_1 =="PostOP" ~ "PostOP",
+    Reason_1 =="Pre AVR" ~ "Pre AVR",
+    Reason_1 =="Pre TAVI" ~ "Pre AVR",
+    Reason_1 =="PreOP evaluation" ~ "Pre OP evaluation",
+    Reason_1 =="Chest pain" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Dizziness" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Dyspnea" ~ "Symptoms/Signs for AS",
+    Reason_1 =="General weakness" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Orthopnea" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Presyncope" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Syncope" ~ "Symptoms/Signs for AS",
+    Reason_1 =="AF" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Afl" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Arrhythmia" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Bradycardia" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Cardiac marker elevation" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Cerebral infarct" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="CRF" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="DCMP" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="DVT" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Embolism" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="ESRD" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Follow up for other purpose (cardiac)" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Follow up for other purpose (non-cardiac)" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="HCMP" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Health check-up" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="HF aggravation" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Hypertension" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Hypotension" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="ICH" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="IE" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Infection" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Ischemic DCMP" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Melena" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Palpitation" ~ "Symptoms/Signs for AS",
+    Reason_1 =="PAOD" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Pneumonia" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Post resuscitation" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="PTE" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Pulmonary hypertension" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Renal infarct" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="SDH" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Sepsis" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Shock" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Stroke" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Thrombus" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Fever" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Follow up for other purpose" ~ "etc"
+    # TRUE ~ NA
+  ))
 
-list = c("AF",
-         "Arrhythmia",
-         "AS",
-         "As",
-         "Bicuspid AV",
-         "Bradycardia",
-         "Cardiac marker elevation",
-         "Cardiomegaly",
-         "Cerebral infarct",
-         "Chest pain",
-         "CRF",
-         "DCMP",
-         "Dizziness",
-         "DVT",
-         "Dyspnea",
-         "Edema",
-         "Effusion",
-         "Embolism",
-         "ESRD",
-         "Follow up for other purpose",
-         "General weakness",
-         "HCMP",
-         "Health check-up",
-         "HF aggravation",
-         "Hypertension",
-         "Hypotension",
-         "ICH",
-         "IE",
-         "Infection",
-         "Ischemic DCMP",
-         "Melena",
-         "Murmur",
-         "Orthopnea",
-         "Palpitation",
-         "PAOD",
-         "Pericardial effusion",
-         "Pleural effusion",
-         "Pneumonia",
-         "Post resuscitation",
-         "PostOP",
-         "Pre AVR",
-         "Pre TAVI",
-         "PreOP evaluation",
-         "Presyncope",
-         "PTE",
-         "Pulmonary edema",
-         "Pulmonary hypertension",
-         "Renal infarct",
-         "SDH",
-         "Sepsis",
-         "Shock",
-         "Stroke",
-         "Syncope",
-         "Thrombus",
-         "Fever")
-
-
-as_dataframe <- data.frame(matrix(ncol = 4, nrow = 0))
-
-for (varname in list){
-  a<- as %>%
-    filter(Reason_1 == varname) %>%
-    nrow()
-  b<- as %>%
-    filter(Reason_1 == varname) %>%
-    filter(group2 == 1) %>%
-    nrow()
-  c<- as %>%
-    filter(Reason_1 == varname) %>%
-    filter(group2 == 2) %>%
-    nrow()
-  
-  tempdf<-data.frame(varname, a, b, c)
-  names(tempdf) <- c("Var","total", "slow", "rapid")
-  as_dataframe<-rbind(as_dataframe, tempdf)
-}
+list = c("Symptoms/Signs for AS", "Known AS follow up", "eval_non_cardiac", "etc")
 
 as<-as %>%
-  mutate(routineFU = ifelse((Reason_1=="AS") | (Reason_1=="Bicuspid AV"), 1, 0)) %>%
-  mutate(sysDisease = ifelse(routineFU==0,1,0))
-
-
+  mutate(Symptomatic = ifelse(Reason_Classified=="Symptoms/Signs for AS", 1, 0)) %>%
+  mutate(routineFU = ifelse(Reason_Classified=="Known AS follow up", 1, 0)) %>%
+  mutate(eval_non_cardiac = ifelse((Reason_Classified=="PostOP") | (Reason_Classified=="Pre AVR") | 
+                                     (Reason_Classified=="Pre OP"), 1, 0)) %>%
+  mutate(etc = ifelse((Symptomatic==0)&(routineFU==0)&(eval_non_cardiac==0),1,0))
 
 as_dataframe <- data.frame(matrix(ncol = 6, nrow = 0))
 names(as_dataframe) <- c("Var","G1_mean_N","G1_sd_per","G2_mean_N","G2_sd_per", "p-value")
 
-list <- c("routineFU", "sysDisease")
+list <- c("Symptomatic", "routineFU", "etc", "eval_non_cardiac")
 
 for (varname in list){
   Var<-varname
