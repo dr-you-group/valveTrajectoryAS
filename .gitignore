@@ -8,3 +8,5 @@
 *.png
 *.txt
 data/
+plot/
+figure/

@@ -4,7 +4,7 @@
 \alias{LCTMPlot}
 \title{LCTMPlot}
 \usage{
-LCTMPlot(sample, fileName = "test")
+LCTMPlot(sample, fileName)
 }
 \arguments{
 \item{sample}{echo sample_data}

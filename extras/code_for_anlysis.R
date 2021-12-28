@@ -1,3 +1,5 @@
+# devtools::install_github("hlennon/LCTMtools", force = T)
+
 library(BSDA)
 library(pROC)
 library(Epi)
@@ -12,19 +14,40 @@ library(rms)
 library(splines)
 library(lcmm)
 library(lubridate)
-
-# devtools::install_github("hlennon/LCTMtools", force = T)
 library(LCTMtools)
-
 
 ############ Strat from here ############
 
 #### Data preparation ####
-# save(modelLCV_1, modelLCV_2, modelLCV_3, modelLCV_4, modelLCV_5, modelLCV_6, file = "./data/latest_model.rds")
-# load(file = "./data/latest_model.rds")
+# save(modelLCV_1, modelLCV_2, modelLCV_3, modelLCV_4, file = "./data/latest_model_1223.rds")
+load(file = "./data/latest_model_1223.rds")
 
-as  <-  read.csv("./data/AS_rawdata_patients.csv", stringsAsFactors = F)
-as_obs <- read.csv("./data/AS_rawdata_echo.csv", stringsAsFactors = F)
+# as_obs<-sample_grouped
+# 
+# as_old  <-  read.csv("./data/AS_rawdata_patients.csv", stringsAsFactors = F)
+# as_obs_old <- read.csv("./data/AS_rawdata_echo.csv", stringsAsFactors = F)
+# 
+# as <- as_obs %>%
+#   group_by(ptno) %>%
+#   arrange(studyDate) %>%
+#   filter(row_number()==1)
+# 
+# ## 이전 data에서 계산된 값들을 가져와 붙임.
+# a<-as_old[,!names(as_old) %in% names(as)]
+# a<-subset(a, select = -c(X))
+# a<-names(a)
+# a<-append("ptno", a)
+# a<-as_old[names(as_old) %in% a]
+# as <- left_join(as, a, by = c("ptno" = "ptno"))
+# rm(a)
+# 
+# 
+# write.csv(as_obs, "./data/AS_rawdata_echo_1223.csv", row.names = FALSE)
+# write.csv(as, "./data/AS_rawdata_patients_1223.csv", row.names = FALSE)
+
+as  <-  read.csv("./data/AS_rawdata_patients_1223.csv", stringsAsFactors = F)
+as_obs <- read.csv("./data/AS_rawdata_echo_1223.csv", stringsAsFactors = F)
+
 
 ####  Customize latent class trajectory plot ####
 
@@ -115,7 +138,7 @@ tmp<-LCTMtoolkit(modelLCV_4)$relativeentropy
 tmp
 
 ## model 4
-modelLCV_5$BIC
+modelLCVL_5$BIC
 
 tmp<-postprob(modelLCV_5)[[1]]
 paste0(tmp[2,1]," : ",tmp[2,2]," : ",tmp[2,3]," : ",tmp[2,4]," : ",tmp[2,5])
@@ -127,7 +150,7 @@ tmp<-LCTMtoolkit(modelLCV_5)$relativeentropy
 tmp
 
 ## model 5
-modelLCV_6$BIC
+modelL_6$BIC
 
 tmp<-postprob(modelLCV_6)[[1]]
 paste0(tmp[2,1]," : ",tmp[2,2]," : ",tmp[2,3]," : ",tmp[2,4]," : ",tmp[2,5]," : ",tmp[2,6])
@@ -153,8 +176,12 @@ as$bmi25 <- ifelse(as$bmi > 25, 1, 0)
 as$age10<-as$age/10
 
 ## f/u days
+
+as$lastFUDay <- as.Date(as$lastFUDay,format="%Y-%m-%d")
+as$studyDate <- as.Date(as$studyDate,format="%Y-%m-%d")
+
 as <- as %>%
-  mutate(fuDays = as.Date(as$lastFUDay, format="%Y-%m-%d") - as.Date(as$studyDate, format="%Y-%m-%d"))
+  mutate(fuDays = as$lastFUDay - as$studyDate)
 
 ## CAD 수정 -> CAD_re
 as <- as %>% 
@@ -203,9 +230,8 @@ as <- as %>%
   mutate(isGroup2 = ifelse(group2==2, 1, 0))
 
 ## class weight
-
 as <- as %>%
-  mutate(class_weight = ifelse(isGroup2==0, 306/686, 380/686))
+  mutate(class_weight = ifelse(isGroup2==1, nrow(as[as$isGroup2==1,])/nrow(as), nrow(as[as$isGroup2==0,])/nrow(as)))
 
 ## to date format
 as$death_date <-as.Date(as$death_date, format="%Y-%m-%d")
@@ -221,9 +247,9 @@ as$lastFUDay <-as.Date(as$lastFUDay, format="%Y-%m-%d")
 ## make tmpDF for save raw data
 tmpDF<-as
 
-group1N<-nrow(as[as$group2==1,]) ## 306
-group2N<-nrow(as[as$group2==2,]) ## 380
-totalNum<-group1N+group2N ## 686
+group1N<-nrow(as[as$group2==1,]) ## 233
+group2N<-nrow(as[as$group2==2,]) ## 80
+totalNum<-group1N+group2N ## 313
 
 ## check 2x2 table if needed
 # varname = "Hypertension"
@@ -242,11 +268,89 @@ totalNum<-group1N+group2N ## 686
 
 ## for dummy variables
 
+as_ind <- read.csv("./data/AS_first_echo_indication_merged.csv", stringsAsFactors = F)
+
+as_ind<-as_ind %>%
+  mutate(Reason_Classified = case_when(
+    Reason_1 =="AS" ~ "Known AS follow up",
+    Reason_1 =="Bicuspid AV" ~ "Known AS follow up",
+    Reason_1 =="Cardiomegaly" ~ "Cardiomegaly",
+    Reason_1 =="Edema" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Effusion" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Pericardial effusion" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Pleural effusion" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Pulmonary edema" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Murmur" ~ "Symptoms/Signs for AS",
+    Reason_1 =="PostOP" ~ "PostOP",
+    Reason_1 =="Pre AVR" ~ "Pre AVR",
+    Reason_1 =="Pre TAVI" ~ "Pre AVR",
+    Reason_1 =="PreOP evaluation" ~ "Pre OP evaluation",
+    Reason_1 =="Chest pain" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Dizziness" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Dyspnea" ~ "Symptoms/Signs for AS",
+    Reason_1 =="General weakness" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Orthopnea" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Presyncope" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Syncope" ~ "Symptoms/Signs for AS",
+    Reason_1 =="AF" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Afl" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Arrhythmia" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Bradycardia" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Cardiac marker elevation" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Cerebral infarct" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="CRF" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="DCMP" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="DVT" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Embolism" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="ESRD" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Follow up for other purpose (cardiac)" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Follow up for other purpose (non-cardiac)" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="HCMP" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Health check-up" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="HF aggravation" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Hypertension" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Hypotension" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="ICH" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="IE" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Infection" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Ischemic DCMP" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Melena" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Palpitation" ~ "Symptoms/Signs for AS",
+    Reason_1 =="PAOD" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Pneumonia" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Post resuscitation" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="PTE" ~ "Symptoms/Signs for AS",
+    Reason_1 =="Pulmonary hypertension" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Renal infarct" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="SDH" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Sepsis" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Shock" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Stroke" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Thrombus" ~ "Follow up for other purpose (cardiac)",
+    Reason_1 =="Fever" ~ "Follow up for other purpose (non-cardiac)",
+    Reason_1 =="Follow up for other purpose" ~ "etc"
+    # TRUE ~ NA
+  ))
+
+list = c("Symptoms/Signs for AS", "Known AS follow up", "eval_non_cardiac", "etc")
+
+as_ind<-as_ind %>%
+  mutate(Symptomatic = ifelse(Reason_Classified=="Symptoms/Signs for AS", 1, 0)) %>%
+  mutate(routineFU = ifelse(Reason_Classified=="Known AS follow up", 1, 0)) %>%
+  mutate(eval_non_cardiac = ifelse((Reason_Classified=="PostOP") | (Reason_Classified=="Pre AVR") | 
+                                     (Reason_Classified=="Pre OP"), 1, 0)) %>%
+  mutate(etc = ifelse((Symptomatic==0)&(routineFU==0)&(eval_non_cardiac==0),1,0))
+
+tmp <- as_ind %>%
+  select(ptno, Symptomatic, routineFU, eval_non_cardiac, etc)
+
+tmpDF<-left_join(tmpDF, tmp, by = c("ptno" = "ptno"))
+
 as_dataframe <- data.frame(matrix(ncol = 6, nrow = 0))
 names(as_dataframe) <- c("Var","G1_mean_N","G1_sd_per","G2_mean_N","G2_sd_per", "p-value")
 
 list <- c("sexDummy", "bmi25","Hypertension","Dyslipidemia","DM","PAOD","Stroke","Renal.dysfunction",
-          "COPD","CAD_re","CABG","HF", "AF", "Rheumatic", "Bicuspid.AV", "Concomittant.AR")
+          "COPD","CAD_re","CABG","HF", "AF", "Rheumatic", "Bicuspid.AV", "Concomittant.AR", "Symptomatic", "routineFU", "etc", "eval_non_cardiac")
 
 for (varname in list){
   Var<-varname
@@ -256,7 +360,7 @@ for (varname in list){
     filter(!!as.name(varname)==1) %>%
     nrow()
   
-  b<-a/group1N*100
+  b<-a/totalNum*100
   
   c<-tmpDF %>%
     filter(group2==2) %>%
@@ -299,6 +403,7 @@ tempdf<-data.frame(Var, a,b)
 names(tempdf) <- c("Var","G1_mean_N","G1_sd_per")
 
 ## for continuous variables
+
 as_dataframe <- data.frame(matrix(ncol = 6, nrow = 0))
 names(as_dataframe) <-  c("Var","G1_mean_N","G1_sd_per","G2_mean_N","G2_sd_per", "p-value")
 
@@ -310,12 +415,12 @@ for (varname in list){
   Var<-varname
 
   a<-tmpDF %>%
-    # filter(group2==1) %>%
+    filter(group2==1) %>%
     pull(!!as.name(varname))%>%
     mean(na.rm=T)
 
   b<-tmpDF %>%
-    # filter(group2==1) %>%
+    filter(group2==1) %>%
     pull(!!as.name(varname))%>%
     sd(na.rm=T)
 
@@ -384,8 +489,8 @@ for (varname in list){
 # write.csv(as_dataframe, "./descriptive.csv")
 
 ## Total
-as_dataframe <- data.frame(matrix(ncol = 4, nrow = 0))
-names(as_dataframe) <- c("Var","G1_median","G1_q25", "G1_q75")
+as_dataframe <- data.frame(matrix(ncol = 3, nrow = 0))
+names(as_dataframe) <- c("Var","mean","sd")
 
 
 for (varname in list){
@@ -393,33 +498,30 @@ for (varname in list){
   
   a<-tmpDF %>%
     pull(!!as.name(varname))%>%
-    median(na.rm=T)
+    mean(na.rm=T)
   
   b<-tmpDF %>%
     pull(!!as.name(varname))%>%
-    quantile(., 0.25, na.rm = T)
+    sd(na.rm=T)
   
-  c<-tmpDF %>%
-    pull(!!as.name(varname))%>%
-    quantile(., 0.75, na.rm = T)
-  
-  tempdf<-data.frame(Var, a,b,c)
-  names(tempdf) <- c("Var","G1_median","G1_q25", "G1_q75")
+  tempdf<-data.frame(Var, a,b)
+  names(tempdf) <- c("Var","mean","sd")
   as_dataframe<-rbind(as_dataframe, tempdf)
 }
 
 tempdf<-data.frame(Var, a,b,c)
-names(tempdf) <- c("Var","G1_median","G1_q25", "G1_q75")
+names(tempdf) <- c("Var","mean","sd")
 
 
 #### progession rate ####
+## mean
 
 as_obs$studyDate <- as.Date(as_obs$studyDate)
 
 a<-as_obs %>%
-  filter(group2==1) %>%
+  # filter(group2==1) %>%
   group_by(ptno) %>%
-  # filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) < 730 ) %>%
+  filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) < 1825 ) %>%
   mutate(velocity = (last(avarMeanPressureGradient)-first(avarMeanPressureGradient)) / (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) *365) %>%
   select(ptno, velocity, avarMeanPressureGradient, studyDate, commentForFixedLines) %>%
   distinct(ptno, .keep_all = T)
@@ -428,7 +530,7 @@ a<-as_obs %>%
 b<-as_obs %>%
   filter(group2==2) %>%
   group_by(ptno) %>%
-  # filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) < 730 ) %>%
+  filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) < 1825 ) %>%
   mutate(velocity = (last(avarMeanPressureGradient)-first(avarMeanPressureGradient)) / (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) * 365 ) %>%
   select(ptno, velocity, avarMeanPressureGradient, studyDate) %>%
   distinct(ptno, .keep_all = T)
@@ -443,16 +545,16 @@ tsum.test(mean.x=mean(a$velocity) , s.x=sd(a$velocity), n.x=group1N,
           mean.y=mean(b$velocity) , s.y=sd(b$velocity), n.y=group2N)$p.value
 
 
-a[,"group2"] = 1
-b[,"group2"] = 2
-tmp<-rbind(a,b)
-# kruskal.test(tmp$velocity, tmp$group2, tmp)[3]$p.value
-tsum.test(mean.x=mean(a$velocity) , s.x=sd(a$velocity), n.x=group1N,
-          mean.y=mean(b$velocity) , s.y=sd(b$velocity), n.y=group2N)$p.value
-
-median(a$velocity)
-quantile(a$velocity, 0.25, na.rm = T)
-quantile(a$velocity, 0.75, na.rm = T)
+# a[,"group2"] = 1
+# b[,"group2"] = 2
+# tmp<-rbind(a,b)
+#  kruskal.test(tmp$velocity, tmp$group2, tmp)[3]$p.value
+# tsum.test(mean.x=mean(a$velocity) , s.x=sd(a$velocity), n.x=group1N,
+#           mean.y=mean(b$velocity) , s.y=sd(b$velocity), n.y=group2N)$p.value
+# 
+# median(a$velocity)
+# quantile(a$velocity, 0.25, na.rm = T)
+# quantile(a$velocity, 0.75, na.rm = T)
 
 ## Check cases of velocity < 0
 # a<- a %>%
@@ -460,7 +562,7 @@ quantile(a$velocity, 0.75, na.rm = T)
 # write.csv(a,"group1_velocity.csv")
 
 
-## 1,2,5년 MPG progression rate 까지의 progression rate
+## progression rate - median
 tmp<-as_obs %>%
   group_by(ptno) %>%
   # filter(group2==1) %>%
@@ -547,7 +649,7 @@ roc_main<-Epi::ROC(form= isGroup2 ~ avarMeanPressureGradient,
          PV = F,
          MX = F,
          MI = F,
-         AUC = F)
+         AUC = T)
 dev.off()
 
 optimal_lr.eta=function(x){
@@ -564,11 +666,11 @@ optimal_cutpoint=function(x){
   result
 } 
 
-optimal_cutpoint(roc_main)
+optimal_cutpoint(roc_main) ## 25
 
-## optimal cutoff: 24
+## optimal cutoff: 25
 tmpDF<-tmpDF %>%
-  mutate(mspg24 = ifelse(avarMeanPressureGradient >= 24 , 1,0) )
+  mutate(mspg25 = ifelse(avarMeanPressureGradient >= 25 , 1,0) )
 
 # b1=pROC::roc(isGroup2 ~ avarMeanPressureGradient,as,ci=T,percent=T)
 # plot(b1)
@@ -578,7 +680,7 @@ tmpDF<-tmpDF %>%
 
 #### survival analysis / Spline curve ####
 
-## lastFUDay 수정 -> lastFUDay_r
+## KM curve를 위한 lastFUDay 수정 -> lastFUDay_r
 
 tmp<-read.csv('./data/Preprocessed_sex_birth_death_uft8.csv')
 
@@ -598,7 +700,8 @@ tmpDF<-tmpDF %>%
   mutate(lastFUDay_r = ifelse((tmp > tmp2)|(is.na(tmp2)), tmp ,tmp2)) %>%
   mutate(across(lastFUDay_r, as.Date, format = "%Y-%m-%d", origin="1970-01-01"))
 
-
+as$lastFUDay
+as$studyDate
 ## check 
 
 event<-c("compOut", "death", "avr", "avrSurgical", "tavi")
@@ -644,8 +747,8 @@ for (i in 1:nrow(event_df)){
              ylim = c(0,1),
              xlim = c(0,9.6))
   
-  # ggsave(file=paste0("./plot/surv_",event,".tiff"), print(g),width=20, height=14, units="cm", dpi = 300)
-  ggsave(file=paste0("./surv_",event,".png"), print(g),width=20, height=14, units="cm", dpi = 300)
+  ggsave(file=paste0("./plot/surv_",event,".tiff"), print(g),width=20, height=14, units="cm", dpi = 300)
+  # ggsave(file=paste0("./surv_",event,".png"), print(g),width=20, height=14, units="cm", dpi = 300)
 }
 
 
@@ -691,7 +794,7 @@ spDF<-tmpDF %>%
 
 ddist <- datadist(spDF)
 options(datadist="ddist")
-ddist$limits["Adjust to","avarMeanPressureGradient"] <- 24
+ddist$limits["Adjust to","avarMeanPressureGradient"] <- 25
 
 spDF <- spDF %>%
   mutate(tmpDate = if_else(is.na(!!as.name(event_date)), lastFUDay, !!as.name(event_date)))
@@ -794,17 +897,17 @@ dev.off()
 #### univariate cox ####
 
 covariates <- c("isGroup2", "sexDummy", "age10","Hypertension","Dyslipidemia","DM","PAOD","Stroke","Renal.dysfunction",
-          "COPD","CAD_re","CABG","HF", "AF", "Rheumatic", "Bicuspid.AV", "Concomittant.AR")
+          "COPD","CAD_re","CABG","HF", "AF", "Concomittant.AR")
 
 univ_formulas <- sapply(covariates,
                         function(x) as.formula(paste('Surv(time, status)~', x)))
 
-event = "avrSurgical"   ## death, avr, compOut, tavi, avrSurgical
-event_date = "avr_sur_date"   ## death_date, avr_date, compOut_date, tavi_date, avr_sur_date
+event = "tavi"   ## death, avr, compOut, tavi, avrSurgical
+event_date = "tavi_date"   ## death_date, avr_date, compOut_date, tavi_date, avr_sur_date
 
 df_for_cox<-tmpDF %>%
   mutate(tmpDate = if_else(is.na(!!as.name(event_date)), lastFUDay, !!as.name(event_date))) %>%
-  mutate(time = as.numeric(tmpDF$tmpDate - tmpDF$studyDate)/365)
+  mutate(time = as.numeric(tmpDate - studyDate)/365)
 
 df_for_cox$status <- tmpDF[[event]]
 
@@ -836,29 +939,29 @@ res
 ##수정필요
 
 ## select variables whose p-value < 0.05
-# res$p.value<-as.numeric(levels(res$p.value))
-# tmp<-res[res$p.value<0.05,]
-# cov_list<-rownames(tmp)
-# cov_list
-# 
-# # out = survival::coxph(survival::Surv(time, eval(as.name(event)))~paste(cov_list, collapse= "+"), data=df_for_cox)
-# paste(cov_list, collapse= "+")
+res$p.value<-as.numeric(levels(res$p.value))
+tmp<-res[res$p.value<0.05,]
+cov_list<-rownames(tmp)
+cov_list
+
+# out = survival::coxph(survival::Surv(time, eval(as.name(event)))~paste(cov_list, collapse= "+"), data=df_for_cox)
+paste(cov_list, collapse= "+")
 
 event = "tavi"   ## compOut, death, avr, avrSurgical, tavi
 event_date = "tavi_date"   ## compOut_date, death_date, avr_date, avr_sur_date, tavi_date
 
 
-# comp: isGroup2+sexDummy+age10+Hypertension+DM+PAOD+Renal.dysfunction+COPD+CAD_re+Rheumatic+Bicuspid.AV+Concomittant.AR
+# comp: isGroup2+age10+Hypertension+DM+Renal.dysfunction
 
-# death: isGroup2+sexDummy+age10+Hypertension+DM+PAOD+Stroke+Renal.dysfunction+COPD+CAD_re+CABG+HF+Rheumatic+Bicuspid.AV+Concomittant.AR
+# death: isGroup2+HF+AF+Concomittant.AR
 
-# avr: isGroup2 +age10+PAOD+Renal.dysfunction+AF+Rheumatic
+# avr: isGroup2+Concomittant.AR
 
-# surgical: isGroup2+age10+Dyslipidemia+CABG
+# surgical: isGroup2+sexDummy+age10+AF+Concomittant.AR
 
-# tavi: isGroup2+age10+Hypertension+Dyslipidemia+DM+PAOD+Renal.dysfunction+COPD+CAD_re+CABG+AF+Rheumatic+Bicuspid.AV+Concomittant.AR
+# tavi: isGroup2+sexDummy+age10+Hypertension+Dyslipidemia+Concomittant.AR
 
-out = survival::coxph(survival::Surv(time, eval(as.name(event)))~isGroup2+age10+Hypertension+Dyslipidemia+DM+PAOD+Renal.dysfunction+COPD+CAD_re+CABG+AF+Rheumatic+Bicuspid.AV+Concomittant.AR, data=df_for_cox, weights= class_weight)
+out = survival::coxph(survival::Surv(time, eval(as.name(event)))~isGroup2+sexDummy+age10+Hypertension+Dyslipidemia+Concomittant.AR, data=df_for_cox, weights= class_weight)
 
 out
 summary(out)
@@ -947,13 +1050,12 @@ tmpDF %>%
   nrow()
 
 
-tmp$
 ######################################################################3
-as_dataframe <- data.frame(matrix(ncol = 4, nrow = 0))
+as_dataframe <- data.frame(matrix(ncol = 5, nrow = 0))
 names(as_dataframe) <- c("n_g1", "per_g1", "n_g2","per_g2")
 
-event<-c("comp_5y", "death_5y", "avr_5y", "avr_sur_5y", "tavi_5y")
-event_date<-c('comp_5y_date', 'death_5y_date', 'avr_5y_date', 'avr_sur_5y_date', 'tavi_5y_date')
+event<-c("compOut", "death", "avr", "avrSurgical", "tavi")
+event_date<-c('compOut_date', 'death_date', 'avr_date', 'avr_sur_date', 'tavi_date')
 event_df<-data.frame(event, event_date)
 
 
@@ -1018,8 +1120,8 @@ for (i in 1:nrow(event_df)) {
 
 #### logistic ####
 
-covariates <- c("mspg24","sexDummy", "age10", "Hypertension","Dyslipidemia","DM","PAOD","Stroke","Renal.dysfunction",
-                "COPD","CAD","CABG","HF", "AF", "Rheumatic", "Bicuspid.AV", "Concomittant.AR")
+covariates <- c("mspg25","sexDummy", "age10", "Hypertension","Dyslipidemia","DM","PAOD","Stroke","Renal.dysfunction",
+                "COPD","CAD","CABG","HF", "AF", "Concomittant.AR")
 
 univ_formulas <- sapply(covariates,
                         function(x) as.formula(paste0('isGroup2~', x)))
@@ -1042,11 +1144,11 @@ univ_results <- lapply(univ_models,
                          #return(exp(cbind(coef(x),confint(x))))
                        })
 res <- t(as.data.frame(univ_results, check.names = FALSE))
-as.data.frame(res)
+res<-as.data.frame(res)
 
 ## multivariate logistic
 
-result<-glm(isGroup2 ~ mspg24  + AF , family=binomial, weights = class_weight, data=tmpDF)
+result<-glm(isGroup2 ~ mspg25  + AF , family=binomial, weights = class_weight, data=tmpDF)
 summary(result)
 
 odds<-as.data.frame(exp(result$coefficients))
@@ -1066,266 +1168,27 @@ death_compare %>%
   filter(!is.na(KMIS)) %>%
   nrow()
 
+#### death information loss ####
 
-####interscan interval 분포 ####
+tmp <- read.csv('./data/death_information_loss_1228.csv', stringsAsFactors = FALSE, encoding = 'utf-8', na.strings = c("", " ", NA))
+tmp <- tmp[tmp$ptno %in% tmpDF$ptno,]
 
-# group1N<-nrow(tmpDF[tmpDF$group2==1,])
-# group2N<-nrow(tmpDF[tmpDF$group2==2,])
-# as_obs$studyDate <- as.Date(as_obs$studyDate)
+tmp[!is.na(tmp$death_sev) & is.na(tmp$death_kmis),] ## kmis에서는 추적안되고 sev에서만 추적한 death는 없음.
 
-tmp<-as_obs %>%
-  group_by(ptno) %>%
-  filter(group2 ==2) %>%
-  mutate(mean_interscan_interval = (last(studyDate) - first(studyDate)) / (n()-1) ) %>%
-  mutate(follow_up = last(studyDate) - first(studyDate) ) %>%
-  select(ptno, mean_interscan_interval, follow_up, studySeq, studyDate) %>%
-  distinct(ptno, mean_interscan_interval,follow_up, .keep_all = T)
+a<-tmpDF %>%
+  select(ptno, group2)
 
-# tmp[which(duplicated(tmp$ptno)),]
-# hist(tmp$mean_interscan_interval)
+tmp<-left_join(tmp, a, by=c("ptno" = "ptno"))
 
-a<- quantile(tmp$follow_up, 0, na.rm = T)/365
-b<- quantile(tmp$follow_up, 0.25, na.rm = T)/365
-c<- quantile(tmp$follow_up, 0.5, na.rm = T)/365
-d<- quantile(tmp$follow_up, 0.75, na.rm = T)/365
-e<- quantile(tmp$follow_up, 1, na.rm = T)/365
-f<- mean(tmp$follow_up, na.rm = T)/365
-
-
-tempdf<-data.frame(a,b,c,d,e,f)
-names(tempdf) <- c("min","25","median","75", "max","mean")
-
-## Kruskall-Wallis test
-# kruskal.test(tmp$mean_interscan_interval, tmp$group2, tmp)[3]$p.value
-
-tmp<-as_obs %>%
-  group_by(ptno) %>%
-  filter(group2 ==1) %>%
-  mutate(mean_interscan_interval = (last(studyDate) - first(studyDate)) / (n()-1) ) %>%
-  mutate(follow_up = last(studyDate) - first(studyDate) ) %>%
-  select(ptno, mean_interscan_interval,follow_up, studySeq, studyDate) %>%
-  distinct(ptno, mean_interscan_interval,follow_up, .keep_all = T)
-
-a<-mean(as.numeric(tmp$mean_interscan_interval), na.rm = T)/365
-b<-sd(as.numeric(tmp$mean_interscan_interval), na.rm = T)/365
-
-tmp<-as_obs %>%
-  group_by(ptno) %>%
-  filter(group2 ==2) %>%
-  mutate(mean_interscan_interval = (last(studyDate) - first(studyDate)) / (n()-1) ) %>%
-  mutate(follow_up = last(studyDate) - first(studyDate) ) %>%
-  select(ptno, mean_interscan_interval,follow_up, studySeq, studyDate) %>%
-  distinct(ptno, mean_interscan_interval,follow_up, .keep_all = T)
-
-c<-mean(as.numeric(tmp$mean_interscan_interval), na.rm = T)/365
-d<-sd(as.numeric(tmp$mean_interscan_interval), na.rm = T)/365
-
-tsum.test(mean.x=as.numeric(a) ,   s.x=as.numeric(b), n.x=group1N,
-          mean.y=as.numeric(c) , s.y=as.numeric(d), n.y=group2N)$p.value
-
-## 2. progression rate (1/2/5/total year)
-
-tmp<-as_obs %>%
-  group_by(ptno) %>%
-  filter(group2==2) %>%
-  # filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) <= 1825 ) %>%
-  mutate(velocity = (last(avarMeanPressureGradient)-first(avarMeanPressureGradient)) / (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) *365) %>%
-  select(ptno, velocity, avarMeanPressureGradient, studyDate, commentForFixedLines,group2) %>%
-  distinct(ptno, .keep_all = T)
-
-a<- quantile(tmp$velocity, 0.25, na.rm = T)
-b<- median(tmp$velocity)
-c<- quantile(tmp$velocity, 0.75, na.rm = T)
-d<- mean(tmp$velocity)
-e<- sd(tmp$velocity)
-f<-nrow(tmp)
-
-e
-
-tempdf<-data.frame(a,b,c,d,e,f)
-names(tempdf) <- c("25","median","75", "mean","sd", "N")
-
-tsum.test(mean.x=as.numeric(mean(tmp[tmp$group2==1,]$velocity)) , s.x=as.numeric(sd(tmp[tmp$group2==1,]$velocity)), n.x=group1N,
-          mean.y=as.numeric(mean(tmp[tmp$group2==2,]$velocity)) , s.y=as.numeric(sd(tmp[tmp$group2==2,]$velocity)), n.y=group2N)$p.value
-
-
-#### echo indication ####
-
-## 1 
-
-ind_df <- read.csv("./data/AS_first_echo_indication_merged.csv")
-
-ind_df<- ind_df %>%
-  mutate(Reason_Classified = case_when(Reason_1 =="AS"~"Routine",
-                                       Reason_1 =="Bicuspid AV"~"Routine",
-                                       Reason_1 =="Cardiomegaly"~"Symptomatic",
-                                       Reason_1 =="Edema"~"Symptomatic",
-                                       Reason_1 =="Effusion"~"Symptomatic",
-                                       Reason_1 =="Pericardial effusion"~"Symptomatic",
-                                       Reason_1 =="Pleural effusion"~"Symptomatic",
-                                       Reason_1 =="Pulmonary edema"~"Symptomatic",
-                                       Reason_1 =="Murmur"~"Symptomatic",
-                                       Reason_1 =="PostOP"~"Evaluation for non~cardiac procedures",
-                                       Reason_1 =="Pre AVR"~"Pre AVR",
-                                       Reason_1 =="Pre TAVI"~"Pre AVR",
-                                       Reason_1 =="PreOP evaluation"~"Evaluation for non~cardiac procedures",
-                                       Reason_1 =="Chest pain"~"Symptomatic",
-                                       Reason_1 =="Dizziness"~"Symptomatic",
-                                       Reason_1 =="Dyspnea"~"Symptomatic",
-                                       Reason_1 =="General weakness"~"Symptomatic",
-                                       Reason_1 =="Orthopnea"~"Symptomatic",
-                                       Reason_1 =="Presyncope"~"Symptomatic",
-                                       Reason_1 =="Syncope"~"Symptomatic",
-                                       Reason_1 =="AF"~"Routine",
-                                       Reason_1 =="Afl"~"Routine",
-                                       Reason_1 =="Arrhythmia"~"Routine",
-                                       Reason_1 =="Bradycardia"~"Routine",
-                                       Reason_1 =="Cardiac marker elevation"~"Routine",
-                                       Reason_1 =="Cerebral infarct"~"Routine",
-                                       Reason_1 =="CRF"~"Routine",
-                                       Reason_1 =="DCMP"~"Routine",
-                                       Reason_1 =="DVT"~"Routine",
-                                       Reason_1 =="Embolism"~"Routine",
-                                       Reason_1 =="ESRD"~"Routine",
-                                       Reason_1 =="Follow up for other purpose"~"Routine",
-                                       Reason_1 =="HCMP"~"Routine",
-                                       Reason_1 =="Health check-up"~"Routine",
-                                       Reason_1 =="HF aggravation"~"Routine",
-                                       Reason_1 =="Hypertension"~"Routine",
-                                       Reason_1 =="Hypotension"~"Routine",
-                                       Reason_1 =="ICH"~"Routine",
-                                       Reason_1 =="IE"~"Routine",
-                                       Reason_1 =="Infection"~"Routine",
-                                       Reason_1 =="Ischemic DCMP"~"Routine",
-                                       Reason_1 =="Melena"~"Routine",
-                                       Reason_1 =="Palpitation"~"Symptomatic",
-                                       Reason_1 =="PAOD"~"Routine",
-                                       Reason_1 =="Pneumonia"~"Routine",
-                                       Reason_1 =="Post resuscitation"~"Routine",
-                                       Reason_1 =="PTE"~"Symptomatic",
-                                       Reason_1 =="Pulmonary hypertension"~"Routine",
-                                       Reason_1 =="Renal infarct"~"Routine",
-                                       Reason_1 =="SDH"~"Routine",
-                                       Reason_1 =="Sepsis"~"Routine",
-                                       Reason_1 =="Shock"~"Routine",
-                                       Reason_1 =="Stroke"~"Routine",
-                                       Reason_1 =="Thrombus"~"Routine",
-                                       Reason_1 =="Fever"~"Routine"
-                                       ))
-
-table(ind_df$Reason_Classified,ind_df$group2)
-
-
-install.packages("fastDummies")
-library(fastDummies)
-
-tmp<- ind_df %>%
-  select(ptno, Reason_Classified, isGroup2)
-
-tmpp<-dummy_cols(tmp, select_columns = 'Reason_Classified')
-
-mylist = colnames(tmpp)
-my.list <- lapply(mylist,function(var)chisq.test(tmpp$isGroup2, tmpp[,var]))
-
-do.call(rbind, my.list)[,c(1,3)]
-
-a<-as.data.frame(mylist)
-
-
-## 2
-
-# ## f/u 도중 40이상이 한번이라도 있는 케이스
-tmp <- as_obs %>%
-  # filter(group2==2) %>%
-  group_by(ptno) %>%
-  mutate(over40 = ifelse(any(avarMeanPressureGradient>=40), 1, 0)) %>%
-  select(ptno, avarMeanPressureGradient, over40, group2) %>%
-  distinct(ptno, .keep_all = T)
-
-chisq.test(tmp$group2, tmp$over40)
-
-# ## 한번이라도 40이상이었다가 미만이 된 케이스
-tmp <- as_obs %>%
-  group_by(ptno) %>%
-  mutate(over40 = ifelse(any(avarMeanPressureGradient>=40), 1, 0)) %>%
-  mutate(over40down = ifelse(any(avarMeanPressureGradient<40) & over40==1, 1, 0)) %>%
-  select(ptno, avarMeanPressureGradient, over40, over40down,group2) %>%
-  distinct(ptno, .keep_all = T)
-
-chisq.test(tmp$group2, tmp$over40down)
-
-
-## 3
-
-
-## echo 검사수 median, quantile
-tmp<-as_obs %>%
-  group_by(ptno) %>%
-  mutate(echo_N = n()) %>%
-  # filter(group2 == 1) %>%
-  distinct(ptno, .keep_all = T) %>%
-  select(ptno, echo_N, group2) 
-
-median(tmp$echo_N)
-quantile(tmp$echo_N, 0.25)
-quantile(tmp$echo_N, 0.75)
-mean(tmp$echo_N)
-
-a<-mean(tmp[tmp$group2==1,]$echo_N)
-b<-sd(tmp[tmp$group2==1,]$echo_N)
-c<-mean(tmp[tmp$group2==2,]$echo_N)
-d<-sd(tmp[tmp$group2==2,]$echo_N)
-
-
-tsum.test(mean.x=a ,   s.x=b, n.x=306,
-           mean.y=c , s.y=d, n.y=380)$p.value
-
-
-
-#### 
-
-# 2. NA 몇명되는지 정리
-
-as %>%
-  filter(is.na(AVA_re)) %>%
-  filter(group2==2) %>%
+tmp %>% filter(group2==1) %>%
+  filter(!is.na(death_kmis)) %>%
   nrow()
 
-# total: 37 (slow group:23, rapid group:14)
-
-# 3. AVA<1.0 각 군/total에서 몇명인지
-
-as %>%
-  filter(AVA_re < 1) %>%
-  filter(group2==2) %>%
-  nrow()
-
-# total: 37 (slow group:17, rapid group:73)
-
-## density plot
-tmpDF$isGroup2_fac<-as.factor(tmpDF$isGroup2)
 
 
-g<-ggplot(tmpDF, aes(x=avarMeanPressureGradient, color = isGroup2_fac)) +
-  geom_density(bw = 1) +
-  theme(text = element_text(size=15), panel.background = element_blank(), axis.line = element_line(colour = "grey")) +
-  labs(x = "Initial MPG", y = "Density") +
-  scale_color_manual(name = "Latent Class", values = c("blue", "red"), labels=c("Trajectory 1 (Slow progression)", "Trajectory 2 (Rapid progression)"))+
-  theme(legend.position = "bottom", legend.box = "horizontal")
 
 
-ggsave(file="./plot/density_plot.tiff", g, width=23, height=12, units="cm", dpi = 300) #saves g
-## 3) 추후 mean interscan interval <30 인 경우 제외 조건도 고려해볼만 함.
-
-# tmp<-as_obs %>%
-#   group_by(ptno) %>%
-#   mutate(interscan_interval = case_when(row_number()==1 ~ 0,
-#                                         row_number()!=1 ~ as.numeric(studyDate) - as.numeric(lag(studyDate))) ) %>%
-#   filter(interscan_interval!=0) %>%
-#   mutate(mean_ii = mean(interscan_interval)) %>%
-#   select(ptno, interscan_interval, mean_ii, studySeq, studyDate) %>%
-#   filter(mean_ii <= 30) %>%
-#   distinct(ptno, .keep_all = T)
+#### 본 분석 끝 ####
 
 
 #### This part is processed already. Do not run codes below ####
@@ -1548,5 +1411,365 @@ ggsave(file="./plot/density_plot.tiff", g, width=23, height=12, units="cm", dpi 
 
 
 # write.csv(as_obs,"AS_rawdata_echo.csv")
+
+
+#### interscan interval 분포 ####
+
+# group1N<-nrow(tmpDF[tmpDF$group2==1,])
+# group2N<-nrow(tmpDF[tmpDF$group2==2,])
+# as_obs$studyDate <- as.Date(as_obs$studyDate)
+
+tmp<-as_obs %>%
+  group_by(ptno) %>%
+  filter(group2 ==2) %>%
+  mutate(mean_interscan_interval = (last(studyDate) - first(studyDate)) / (n()-1) ) %>%
+  mutate(follow_up = last(studyDate) - first(studyDate) ) %>%
+  select(ptno, mean_interscan_interval, follow_up, studySeq, studyDate) %>%
+  distinct(ptno, mean_interscan_interval,follow_up, .keep_all = T)
+
+# tmp[which(duplicated(tmp$ptno)),]
+# hist(tmp$mean_interscan_interval)
+
+a<- quantile(tmp$follow_up, 0, na.rm = T)/365
+b<- quantile(tmp$follow_up, 0.25, na.rm = T)/365
+c<- quantile(tmp$follow_up, 0.5, na.rm = T)/365
+d<- quantile(tmp$follow_up, 0.75, na.rm = T)/365
+e<- quantile(tmp$follow_up, 1, na.rm = T)/365
+f<- mean(tmp$follow_up, na.rm = T)/365
+
+
+tempdf<-data.frame(a,b,c,d,e,f)
+names(tempdf) <- c("min","25","median","75", "max","mean")
+
+## Kruskall-Wallis test
+# kruskal.test(tmp$mean_interscan_interval, tmp$group2, tmp)[3]$p.value
+
+tmp<-as_obs %>%
+  group_by(ptno) %>%
+  filter(group2 ==1) %>%
+  mutate(mean_interscan_interval = (last(studyDate) - first(studyDate)) / (n()-1) ) %>%
+  mutate(follow_up = last(studyDate) - first(studyDate) ) %>%
+  select(ptno, mean_interscan_interval,follow_up, studySeq, studyDate) %>%
+  distinct(ptno, mean_interscan_interval,follow_up, .keep_all = T)
+
+a<-mean(as.numeric(tmp$mean_interscan_interval), na.rm = T)/365
+b<-sd(as.numeric(tmp$mean_interscan_interval), na.rm = T)/365
+
+tmp<-as_obs %>%
+  group_by(ptno) %>%
+  filter(group2 ==2) %>%
+  mutate(mean_interscan_interval = (last(studyDate) - first(studyDate)) / (n()-1) ) %>%
+  mutate(follow_up = last(studyDate) - first(studyDate) ) %>%
+  select(ptno, mean_interscan_interval,follow_up, studySeq, studyDate) %>%
+  distinct(ptno, mean_interscan_interval,follow_up, .keep_all = T)
+
+c<-mean(as.numeric(tmp$mean_interscan_interval), na.rm = T)/365
+d<-sd(as.numeric(tmp$mean_interscan_interval), na.rm = T)/365
+
+tsum.test(mean.x=as.numeric(a) ,   s.x=as.numeric(b), n.x=group1N,
+          mean.y=as.numeric(c) , s.y=as.numeric(d), n.y=group2N)$p.value
+
+## 2. progression rate (1/2/5/total year)
+
+tmp<-as_obs %>%
+  group_by(ptno) %>%
+  filter(group2==2) %>%
+  # filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) <= 1825 ) %>%
+  mutate(velocity = (last(avarMeanPressureGradient)-first(avarMeanPressureGradient)) / (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) *365) %>%
+  select(ptno, velocity, avarMeanPressureGradient, studyDate, commentForFixedLines,group2) %>%
+  distinct(ptno, .keep_all = T)
+
+a<- quantile(tmp$velocity, 0.25, na.rm = T)
+b<- median(tmp$velocity)
+c<- quantile(tmp$velocity, 0.75, na.rm = T)
+d<- mean(tmp$velocity)
+e<- sd(tmp$velocity)
+f<-nrow(tmp)
+
+e
+
+tempdf<-data.frame(a,b,c,d,e,f)
+names(tempdf) <- c("25","median","75", "mean","sd", "N")
+
+tsum.test(mean.x=as.numeric(mean(tmp[tmp$group2==1,]$velocity)) , s.x=as.numeric(sd(tmp[tmp$group2==1,]$velocity)), n.x=group1N,
+          mean.y=as.numeric(mean(tmp[tmp$group2==2,]$velocity)) , s.y=as.numeric(sd(tmp[tmp$group2==2,]$velocity)), n.y=group2N)$p.value
+
+
+
+#### 추가분석 1 ####
+
+## 1 
+
+ind_df <- read.csv("./data/AS_first_echo_indication_merged.csv")
+
+ind_df<- ind_df %>%
+  mutate(Reason_Classified = case_when(Reason_1 =="AS"~"Routine",
+                                       Reason_1 =="Bicuspid AV"~"Routine",
+                                       Reason_1 =="Cardiomegaly"~"Symptomatic",
+                                       Reason_1 =="Edema"~"Symptomatic",
+                                       Reason_1 =="Effusion"~"Symptomatic",
+                                       Reason_1 =="Pericardial effusion"~"Symptomatic",
+                                       Reason_1 =="Pleural effusion"~"Symptomatic",
+                                       Reason_1 =="Pulmonary edema"~"Symptomatic",
+                                       Reason_1 =="Murmur"~"Symptomatic",
+                                       Reason_1 =="PostOP"~"Evaluation for non~cardiac procedures",
+                                       Reason_1 =="Pre AVR"~"Pre AVR",
+                                       Reason_1 =="Pre TAVI"~"Pre AVR",
+                                       Reason_1 =="PreOP evaluation"~"Evaluation for non~cardiac procedures",
+                                       Reason_1 =="Chest pain"~"Symptomatic",
+                                       Reason_1 =="Dizziness"~"Symptomatic",
+                                       Reason_1 =="Dyspnea"~"Symptomatic",
+                                       Reason_1 =="General weakness"~"Symptomatic",
+                                       Reason_1 =="Orthopnea"~"Symptomatic",
+                                       Reason_1 =="Presyncope"~"Symptomatic",
+                                       Reason_1 =="Syncope"~"Symptomatic",
+                                       Reason_1 =="AF"~"Routine",
+                                       Reason_1 =="Afl"~"Routine",
+                                       Reason_1 =="Arrhythmia"~"Routine",
+                                       Reason_1 =="Bradycardia"~"Routine",
+                                       Reason_1 =="Cardiac marker elevation"~"Routine",
+                                       Reason_1 =="Cerebral infarct"~"Routine",
+                                       Reason_1 =="CRF"~"Routine",
+                                       Reason_1 =="DCMP"~"Routine",
+                                       Reason_1 =="DVT"~"Routine",
+                                       Reason_1 =="Embolism"~"Routine",
+                                       Reason_1 =="ESRD"~"Routine",
+                                       Reason_1 =="Follow up for other purpose"~"Routine",
+                                       Reason_1 =="HCMP"~"Routine",
+                                       Reason_1 =="Health check-up"~"Routine",
+                                       Reason_1 =="HF aggravation"~"Routine",
+                                       Reason_1 =="Hypertension"~"Routine",
+                                       Reason_1 =="Hypotension"~"Routine",
+                                       Reason_1 =="ICH"~"Routine",
+                                       Reason_1 =="IE"~"Routine",
+                                       Reason_1 =="Infection"~"Routine",
+                                       Reason_1 =="Ischemic DCMP"~"Routine",
+                                       Reason_1 =="Melena"~"Routine",
+                                       Reason_1 =="Palpitation"~"Symptomatic",
+                                       Reason_1 =="PAOD"~"Routine",
+                                       Reason_1 =="Pneumonia"~"Routine",
+                                       Reason_1 =="Post resuscitation"~"Routine",
+                                       Reason_1 =="PTE"~"Symptomatic",
+                                       Reason_1 =="Pulmonary hypertension"~"Routine",
+                                       Reason_1 =="Renal infarct"~"Routine",
+                                       Reason_1 =="SDH"~"Routine",
+                                       Reason_1 =="Sepsis"~"Routine",
+                                       Reason_1 =="Shock"~"Routine",
+                                       Reason_1 =="Stroke"~"Routine",
+                                       Reason_1 =="Thrombus"~"Routine",
+                                       Reason_1 =="Fever"~"Routine"
+                                       ))
+
+table(ind_df$Reason_Classified,ind_df$group2)
+
+
+install.packages("fastDummies")
+library(fastDummies)
+
+tmp<- ind_df %>%
+  select(ptno, Reason_Classified, isGroup2)
+
+tmpp<-dummy_cols(tmp, select_columns = 'Reason_Classified')
+
+mylist = colnames(tmpp)
+my.list <- lapply(mylist,function(var)chisq.test(tmpp$isGroup2, tmpp[,var]))
+
+do.call(rbind, my.list)[,c(1,3)]
+
+a<-as.data.frame(mylist)
+
+
+## 2
+
+# ## f/u 도중 40이상이 한번이라도 있는 케이스
+tmp <- as_obs %>%
+  # filter(group2==2) %>%
+  group_by(ptno) %>%
+  mutate(over40 = ifelse(any(avarMeanPressureGradient>=40), 1, 0)) %>%
+  select(ptno, avarMeanPressureGradient, over40, group2) %>%
+  distinct(ptno, .keep_all = T)
+
+chisq.test(tmp$group2, tmp$over40)
+
+# ## 한번이라도 40이상이었다가 미만이 된 케이스
+tmp <- as_obs %>%
+  group_by(ptno) %>%
+  mutate(over40 = ifelse(any(avarMeanPressureGradient>=40), 1, 0)) %>%
+  mutate(over40down = ifelse(any(avarMeanPressureGradient<40) & over40==1, 1, 0)) %>%
+  select(ptno, avarMeanPressureGradient, over40, over40down,group2) %>%
+  distinct(ptno, .keep_all = T)
+
+chisq.test(tmp$group2, tmp$over40down)
+
+
+## 3
+
+
+## echo 검사수 median, quantile
+tmp<-as_obs %>%
+  group_by(ptno) %>%
+  mutate(echo_N = n()) %>%
+  # filter(group2 == 1) %>%
+  distinct(ptno, .keep_all = T) %>%
+  select(ptno, echo_N, group2) 
+
+median(tmp$echo_N)
+quantile(tmp$echo_N, 0.25)
+quantile(tmp$echo_N, 0.75)
+mean(tmp$echo_N)
+
+a<-mean(tmp[tmp$group2==1,]$echo_N)
+b<-sd(tmp[tmp$group2==1,]$echo_N)
+c<-mean(tmp[tmp$group2==2,]$echo_N)
+d<-sd(tmp[tmp$group2==2,]$echo_N)
+
+
+tsum.test(mean.x=a ,   s.x=b, n.x=306,
+           mean.y=c , s.y=d, n.y=380)$p.value
+
+
+
+#### 추가분석 2 ####
+
+# 2. NA 몇명되는지 정리
+
+as %>%
+  filter(is.na(AVA_re)) %>%
+  filter(group2==2) %>%
+  nrow()
+
+# total: 37 (slow group:23, rapid group:14)
+
+# 3. AVA<1.0 각 군/total에서 몇명인지
+
+as %>%
+  filter(AVA_re < 1) %>%
+  filter(group2==2) %>%
+  nrow()
+
+# total: 37 (slow group:17, rapid group:73)
+
+## density plot
+tmpDF$isGroup2_fac<-as.factor(tmpDF$isGroup2)
+
+
+g<-ggplot(tmpDF, aes(x=avarMeanPressureGradient, color = isGroup2_fac)) +
+  geom_density(bw = 1) +
+  theme(text = element_text(size=15), panel.background = element_blank(), axis.line = element_line(colour = "grey")) +
+  labs(x = "Initial MPG", y = "Density") +
+  scale_color_manual(name = "Latent Class", values = c("blue", "red"), labels=c("Trajectory 1 (Slow progression)", "Trajectory 2 (Rapid progression)"))+
+  theme(legend.position = "bottom", legend.box = "horizontal")
+
+
+ggsave(file="./plot/density_plot.tiff", g, width=23, height=12, units="cm", dpi = 300) #saves g
+
+## 3) 추후 mean interscan interval <30 인 경우 제외 조건도 고려해볼만 함.
+
+# tmp<-as_obs %>%
+#   group_by(ptno) %>%
+#   mutate(interscan_interval = case_when(row_number()==1 ~ 0,
+#                                         row_number()!=1 ~ as.numeric(studyDate) - as.numeric(lag(studyDate))) ) %>%
+#   filter(interscan_interval!=0) %>%
+#   mutate(mean_ii = mean(interscan_interval)) %>%
+#   select(ptno, interscan_interval, mean_ii, studySeq, studyDate) %>%
+#   filter(mean_ii <= 30) %>%
+#   distinct(ptno, .keep_all = T)
+
+#### 추가분석 3 ####
+## avr 현재 토탈 237명 : 이 중에서 f/u mpg>40인 경우 얼마나 되는지 (전체/slow/rapid)
+
+a<-as%>%
+  filter(avr==1) %>%
+  select(ptno)
+
+as_obs_avr <- as_obs[as_obs$ptno %in% a$ptno,]
+
+as_obs_avr_list <- as_obs_avr %>%
+  distinct(ptno)
+
+## fu도중 mpg>=40이 6케이스/261
+
+as_obs %>%
+  filter(group2 == 2) %>%
+  filter(row_number()!=1 ) %>%
+  filter(avarMeanPressureGradient >= 40) %>%
+  distinct(ptno) %>%
+  nrow()
+
+#avr받은 환자 41명/196
+as_obs[as_obs$ptno %in% as_obs_avr_list$ptno,] %>%
+  filter(group2==2) %>%
+  distinct(ptno) %>%
+  nrow()
+
+#avr받은 사람 중 mpg>=40이 3케이스/158
+
+as_obs_avr %>%
+  filter(group2 == 2) %>%
+  filter(row_number()!=1 ) %>%
+  filter(avarMeanPressureGradient >= 40) %>%
+  distinct(ptno) %>%
+  nrow()
+
+
+## 환자 구분 리스트
+
+
+a<-as_obs %>%
+  filter(group2 == 1) %>%
+  filter(row_number()!=1 ) %>%
+  filter(avarMeanPressureGradient >= 40) %>%
+  distinct(ptno) 
+
+b<-as_obs[as_obs$ptno %in% as_obs_avr_list$ptno,] %>%
+  filter(group2==1) %>%
+  distinct(ptno) 
+
+c<-as_obs_avr %>%
+  filter(group2 == 1) %>%
+  filter(row_number()!=1 ) %>%
+  filter(avarMeanPressureGradient >= 40) %>%
+  distinct(ptno)
+
+
+write.csv(a, "./mpg40_during_fu_g1.csv")
+write.csv(b, "./avr_g1.csv")
+write.csv(c, "./avr_mpg40_g1.csv")
+
+#### 추가분석 4 ####
+
+# 선생님 혹시 avr햇던 환자에 대해서 그룹 나눠서 다음 사항 부탁드려도 될까요?
+#   - 환자번호
+# - avr직전 에코 코멘트
+# - avr직전 에코 mspg
+# - avr직전 에코 ava (두가지 모드 전부 두 column으로)
+# - avr직전 에코 peak velocity
+# - avr직전 에코 EF
+
+a<-as %>%
+  filter(avr==1) %>%
+  select(ptno, avr_date)
+
+b<-as_obs[as_obs$ptno %in% a$ptno,]
+
+
+b<-b[b$studyDate <= b$avr_date,]
+
+b<- b %>%
+  arrange(ptno, studyDate)
+
+c <- b %>% 
+  group_by(ptno) %>%
+  arrange(studyDate) %>%
+  filter(studyDate <= avr_date) %>%
+  slice(n()) %>%
+  select(ptno, group2, studyDate, avr_date, commentForFixedLines, avarMeanPressureGradient, avaByContinuityEquation, avarPeakPressureGradient, leftVentricleefBymMode, leftVentricleefBy2dMode)
+  
+
+write.csv(c, "./avr_pat_list.csv")
+
+
+
+
 
 
