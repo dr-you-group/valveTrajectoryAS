@@ -1185,7 +1185,19 @@ tmp %>% filter(group2==1) %>%
   nrow()
 
 
+#### density plot
+tmpDF$isGroup2_fac<-as.factor(tmpDF$isGroup2)
 
+
+g<-ggplot(tmpDF, aes(x=avarMeanPressureGradient, color = isGroup2_fac)) +
+  geom_density(bw = 1) +
+  theme(text = element_text(size=15), panel.background = element_blank(), axis.line = element_line(colour = "grey")) +
+  labs(x = "Initial MPG", y = "Density") +
+  scale_color_manual(name = "Latent Class", values = c("blue", "red"), labels=c("Trajectory 1 (Slow progression)", "Trajectory 2 (Rapid progression)"))+
+  theme(legend.position = "bottom", legend.box = "horizontal")
+
+
+ggsave(file="./plot/density_plot.tiff", g, width=23, height=12, units="cm", dpi = 300) #saves g
 
 
 #### 본 분석 끝 ####
@@ -1648,20 +1660,6 @@ as %>%
   nrow()
 
 # total: 37 (slow group:17, rapid group:73)
-
-## density plot
-tmpDF$isGroup2_fac<-as.factor(tmpDF$isGroup2)
-
-
-g<-ggplot(tmpDF, aes(x=avarMeanPressureGradient, color = isGroup2_fac)) +
-  geom_density(bw = 1) +
-  theme(text = element_text(size=15), panel.background = element_blank(), axis.line = element_line(colour = "grey")) +
-  labs(x = "Initial MPG", y = "Density") +
-  scale_color_manual(name = "Latent Class", values = c("blue", "red"), labels=c("Trajectory 1 (Slow progression)", "Trajectory 2 (Rapid progression)"))+
-  theme(legend.position = "bottom", legend.box = "horizontal")
-
-
-ggsave(file="./plot/density_plot.tiff", g, width=23, height=12, units="cm", dpi = 300) #saves g
 
 ## 3) 추후 mean interscan interval <30 인 경우 제외 조건도 고려해볼만 함.
 
