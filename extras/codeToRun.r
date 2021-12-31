@@ -15,6 +15,7 @@ library(dplyr)
 
 as  <-  read.csv("./data/AS_rawdata_patients_1223.csv", stringsAsFactors = F)
 as_obs <- read.csv("./data/AS_rawdata_echo_1223.csv", stringsAsFactors = F)
+ ## as: 311/165 ; asobs_1308/138
 
 as<-subset(as,select = -c(group2, group3, group4))
 as_obs<-subset(as_obs,select = -c(group2, group3, group4))

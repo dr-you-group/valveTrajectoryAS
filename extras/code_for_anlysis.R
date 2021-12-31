@@ -19,7 +19,7 @@ library(LCTMtools)
 ############ Strat from here ############
 
 #### Data preparation ####
-# save(modelLCV_1, modelLCV_2, modelLCV_3, modelLCV_4, file = "./data/latest_model_1223.rds")
+# save(modelLCV_1, modelLCV_2, modelLCV_3, modelLCV_4,modelLCV_5,modelLCV_6, file = "./data/latest_model_1223.rds")
 load(file = "./data/latest_model_1223.rds")
 
 # as_obs<-sample_grouped
@@ -247,9 +247,9 @@ as$lastFUDay <-as.Date(as$lastFUDay, format="%Y-%m-%d")
 ## make tmpDF for save raw data
 tmpDF<-as
 
-group1N<-nrow(as[as$group2==1,]) ## 233
+group1N<-nrow(as[as$group2==1,]) ## 231
 group2N<-nrow(as[as$group2==2,]) ## 80
-totalNum<-group1N+group2N ## 313
+totalNum<-group1N+group2N ## 311
 
 ## check 2x2 table if needed
 # varname = "Hypertension"
@@ -515,13 +515,14 @@ names(tempdf) <- c("Var","mean","sd")
 
 #### progession rate ####
 ## mean
+#### 수정 필요 ####
 
 as_obs$studyDate <- as.Date(as_obs$studyDate)
 
 a<-as_obs %>%
   # filter(group2==1) %>%
   group_by(ptno) %>%
-  filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) < 1825 ) %>%
+  # filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) < 365 ) %>%
   mutate(velocity = (last(avarMeanPressureGradient)-first(avarMeanPressureGradient)) / (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) *365) %>%
   select(ptno, velocity, avarMeanPressureGradient, studyDate, commentForFixedLines) %>%
   distinct(ptno, .keep_all = T)
@@ -530,7 +531,7 @@ a<-as_obs %>%
 b<-as_obs %>%
   filter(group2==2) %>%
   group_by(ptno) %>%
-  filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) < 1825 ) %>%
+  # filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) < 1825 ) %>%
   mutate(velocity = (last(avarMeanPressureGradient)-first(avarMeanPressureGradient)) / (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) * 365 ) %>%
   select(ptno, velocity, avarMeanPressureGradient, studyDate) %>%
   distinct(ptno, .keep_all = T)
@@ -563,23 +564,23 @@ tsum.test(mean.x=mean(a$velocity) , s.x=sd(a$velocity), n.x=group1N,
 
 
 ## progression rate - median
-tmp<-as_obs %>%
-  group_by(ptno) %>%
-  # filter(group2==1) %>%
-  # filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) <= 1825 ) %>%
-  filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) > 90 ) %>%
-  mutate(velocity = (last(avarMeanPressureGradient)-first(avarMeanPressureGradient)) / (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) *365) %>%
-  select(ptno, velocity, avarMeanPressureGradient, studyDate, commentForFixedLines) %>%
-  distinct(ptno, .keep_all = T)
-
-a<- quantile(tmp$velocity, 0.25, na.rm = T)
-b<- median(tmp$velocity)
-c<- quantile(tmp$velocity, 0.75, na.rm = T)
-d<- mean(tmp$velocity)
-e<-nrow(tmp)
-
-tempdf<-data.frame(a,b,c,d, e)
-names(tempdf) <- c("25","median","75", "mean", "N")
+# tmp<-as_obs %>%
+#   group_by(ptno) %>%
+#   # filter(group2==1) %>%
+#   # filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) <= 1825 ) %>%
+#   filter( (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) > 90 ) %>%
+#   mutate(velocity = (last(avarMeanPressureGradient)-first(avarMeanPressureGradient)) / (as.numeric(as.POSIXct(last(studyDate)) - as.POSIXct(first(studyDate)))) *365) %>%
+#   select(ptno, velocity, avarMeanPressureGradient, studyDate, commentForFixedLines) %>%
+#   distinct(ptno, .keep_all = T)
+# 
+# a<- quantile(tmp$velocity, 0.25, na.rm = T)
+# b<- median(tmp$velocity)
+# c<- quantile(tmp$velocity, 0.75, na.rm = T)
+# d<- mean(tmp$velocity)
+# e<-nrow(tmp)
+# 
+# tempdf<-data.frame(a,b,c,d, e)
+# names(tempdf) <- c("25","median","75", "mean", "N")
 
 
 # a<-as_obs %>%
@@ -757,34 +758,36 @@ for (i in 1:nrow(event_df)){
 
 ## 이거 왜 저장안되지
 # for (i in 1:nrow(event_df)){
-#   
+# 
 #   event = as.character(event_df[i,1])
 #   event_date = as.character(event_df[i,2])
 # 
 #   spDF<-tmpDF %>%
 #     dplyr::select(ptno, avarMeanPressureGradient, sexDummy, age, studyDate, lastFUDay, isGroup2, death, avr,
 #                   avrSurgical, tavi, compOut, death_date, avr_date, avr_sur_date, tavi_date, compOut_date)
-#   
+# 
 #   ddist <- datadist(spDF)
 #   options(datadist="ddist")
 #   ddist$limits["Adjust to","avarMeanPressureGradient"] <- 24
-#   
+# 
 #   spDF <- spDF %>%
 #     mutate(tmpDate = if_else(is.na(!!as.name(event_date)), lastFUDay, !!as.name(event_date)))
-#   
+# 
 #   surv_object <- Surv(time = as.numeric(spDF$tmpDate - spDF$studyDate)/365, event = spDF[[event]])
-#   
+# 
 #   Spline_mspg <-cph(surv_object ~ rcs(avarMeanPressureGradient,4)
 #                     ,spDF, x=T, y=T)
-#   
+# 
 #   Splcurve_mspg=Predict(Spline_mspg,avarMeanPressureGradient, ref.zero=TRUE, fun=exp)
-#   
+# 
 #   tiff(paste0("./plot/spline_",event,".tiff"), units="in", width=7, height=7, res=300)
 #   plot(Splcurve_mspg, xlab = "MPG", ylab = "HR (95% CI)")
 #   dev.off()
 # }
 
-i=5
+## 수동
+
+i=1
 event = as.character(event_df[i,1])
 event_date = as.character(event_df[i,2])
 
@@ -902,8 +905,8 @@ covariates <- c("isGroup2", "sexDummy", "age10","Hypertension","Dyslipidemia","D
 univ_formulas <- sapply(covariates,
                         function(x) as.formula(paste('Surv(time, status)~', x)))
 
-event = "tavi"   ## death, avr, compOut, tavi, avrSurgical
-event_date = "tavi_date"   ## death_date, avr_date, compOut_date, tavi_date, avr_sur_date
+event = "death"   ## death, avr, compOut, tavi, avrSurgical
+event_date = "death_date"   ## death_date, avr_date, compOut_date, tavi_date, avr_sur_date
 
 df_for_cox<-tmpDF %>%
   mutate(tmpDate = if_else(is.na(!!as.name(event_date)), lastFUDay, !!as.name(event_date))) %>%
@@ -1041,21 +1044,24 @@ tmpDF<-tmpDF %>%
 
 
 # "compOut", "death", "avr", "avrSurgical", "tavi"
-event = "compOut"   ## comp_1y/ death_1y/ avr_1y/ avr_sur_1y/ tavi_1y
+event = "death"   ## comp_1y/ death_1y/ avr_1y/ avr_sur_1y/ tavi_1y
 
-tmpDF %>%
-  filter(group2==2) %>%
-  # filter(avr==1) %>%
-  filter(!is.na(avr_date)==1) %>%
-  nrow()
+# tmpDF %>%
+#   filter(group2==2) %>%
+#   # filter(avr==1) %>%
+#   filter(!is.na(avr_date)==1) %>%
+#   nrow()
 
 
 ######################################################################3
 as_dataframe <- data.frame(matrix(ncol = 5, nrow = 0))
 names(as_dataframe) <- c("n_g1", "per_g1", "n_g2","per_g2")
 
-event<-c("compOut", "death", "avr", "avrSurgical", "tavi")
-event_date<-c('compOut_date', 'death_date', 'avr_date', 'avr_sur_date', 'tavi_date')
+## comp_1y / death_1y / avr_1y / avr_sur_1y / tavi_1y
+## comp_1y_date / death_1y_date / avr_1y_date / avr_sur_1y_date / tavi_1y_date
+
+event<-c("comp_1y", "death_1y", "avr_1y", "avr_sur_1y", "tavi_1y")
+event_date<-c('comp_1y_date', 'death_1y_date', 'avr_1y_date', 'avr_sur_1y_date', 'tavi_1y_date')
 event_df<-data.frame(event, event_date)
 
 
@@ -1159,14 +1165,14 @@ tmp<-cbind(odds,ci, pval)
 
 
 #### information loss ####
-death_compare  <-  read.csv("./data/death_information_loss.csv", stringsAsFactors = F)
-death_compare$in_hospital<-as.Date(death_compare$in_hospital, format="%Y-%m-%d" )
-death_compare$KMIS<-as.Date(death_compare$KMIS, format="%Y-%m-%d" )
-
-death_compare %>%
-  # filter(group2==1) %>%
-  filter(!is.na(KMIS)) %>%
-  nrow()
+# death_compare  <-  read.csv("./data/death_information_loss.csv", stringsAsFactors = F)
+# death_compare$in_hospital<-as.Date(death_compare$in_hospital, format="%Y-%m-%d" )
+# death_compare$KMIS<-as.Date(death_compare$KMIS, format="%Y-%m-%d" )
+# 
+# death_compare %>%
+#   # filter(group2==1) %>%
+#   filter(!is.na(KMIS)) %>%
+#   nrow()
 
 #### death information loss ####
 
@@ -1180,8 +1186,8 @@ a<-tmpDF %>%
 
 tmp<-left_join(tmp, a, by=c("ptno" = "ptno"))
 
-tmp %>% filter(group2==1) %>%
-  filter(!is.na(death_kmis)) %>%
+tmp %>% filter(group2==2) %>%
+  filter(!is.na(death_sev)) %>%
   nrow()
 
 

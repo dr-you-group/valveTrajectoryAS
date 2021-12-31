@@ -25,7 +25,7 @@ LCTMLinear<-function(seed_num = 100, sample=NULL)
                          subject = "ptno",
                          data = data.frame(sample) )
 
-   for (i in 2:6){
+   for (i in 2:4){
      set.seed(seed_num)
      m<-paste("modelL_",i,sep = "")
 
@@ -68,7 +68,7 @@ LCTMLinearAddCV<-function(seed_num = 100, sample=NULL )
                         data = data.frame(sample) ),
          envir = parent.frame())
   
-  for (i in 2:4){
+  for (i in 2:6){
     set.seed(seed_num)
     m<-paste("modelLCV_",i,sep = "")
     
